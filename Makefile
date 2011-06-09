@@ -35,12 +35,15 @@ MINGWREDIST_DLL := mingwm10.dll
 MINGWREDIST_DLL_GZ := $(addsuffix .gz,$(MINGWREDIST_DLL))
 
 # Couchdb
+COUCHDB_REDIST_URL := https://github.com/downloads/dch/couchdb/couchdb-1.1.0+COUCHDB-1152_otp_R14B01+OTP-9139.7z
+COUCHDB_DOWNLOADED_REDIST := $(DOWNLOADS_DIR)/couchdb_redist.7z
+COUCHDB_REDIST_DIR := $(TEMP_DIR)/couchdb_redist
 COUCHDB_HG_URL := https://couchdb-python.googlecode.com/hg/
 COUCHDB_DIR := couchdb-python
 COUCHDB_HG_CLONE := $(addprefix $(DOWNLOADS_DIR)/,$(COUCHDB_DIR))
 
 
-all: $(PYTHON_DOWNLOADED_MSI) $(COUCHDB_HG_CLONE)
+all: $(PYTHON_DOWNLOADED_MSI) $(COUCHDB_HG_CLONE) $(COUCHDB_REDIST_DIR)
 
 # Downloading prerequisites
 $(DOWNLOADS_DIR):
@@ -50,7 +53,13 @@ $(DOWNLOADS_DIR):
 
 $(COUCHDB_HG_CLONE): $(DOWNLOADS_DIR) 
 	@echo "Cloning couchdb-python"
-	hg clone $(COUCHDB_HG_URL) $(COUCHDB_HG_CLONE)
+	ls $(COUCHDB_HG_CLONE) || hg clone $(COUCHDB_HG_URL) $(COUCHDB_HG_CLONE)
+
+
+$(COUCHDB_REDIST_DIR): $(DOWNLOADS_DIR)
+	@echo "Downloading precompiled couchdb-redistribulable"
+	ls $(COUCHDB_DOWNLOADED_REDIST) || wget -O $(COUCHDB_DOWNLOADED_REDIST) $(COUCHDB_REDIST_URL)
+	ls $(COUCHDB_REDIST_DIR) || 7z x -o$(TEMP_DIR) $(COUCHDB_DOWNLOADED_REDIST) && mv $(TEMP_DIR)/couch* $(COUCHDB_REDIST_DIR) 
 
 
 $(PYTHON_DOWNLOADED_MSI): $(DOWNLOADS_DIR)
@@ -107,3 +116,30 @@ build-win32: $(WIN32_MODULES_FILE) $(TARGET_EXE)
 	cp -f $(TARGET_EXE) $(WINPYTHON_DIR)/$(WINPYTHON_DLL) $(WIN32_RELEASE)
 	cp -f $(TARGET_EXE) $(WINPYTHON_DIR)/$(WINPYTHON_MANIFEST) $(WIN32_RELEASE)
 	cp -f $(WIN32_MODULES_FILE) $(WIN32_MODULES_DIR)
+
+
+# Remove the temporary files created during the Win32 build
+postbuild-win32:
+	rm -rf $(TARGET_EXE) $(WIN32_MODULES_FILE)
+	rm -rf $(addprefix $(WIN32_RELEASE)/,$(PYTHON_DIRS_HOSTONLY))
+	rm -rf $(WIN32_RELEASE)/*.py
+# 	Special case for hostgui.pyo, which needs to be included into the toplevel directory.
+	find $(WIN32_RELEASE)/ -maxdepth 1 -name '*.pyo' -and -not -name 'chostgui.pyo' | xargs rm -f
+	find $(WIN32_RELEASE)/ -maxdepth 1 -name '*.pyc' -and -not -name 'chostgui.pyo' | xargs rm -f
+	rm -rf $(addprefix $(WIN32_RELEASE)/,$(BUILTINS_RAW))
+	find $(WIN32_RELEASE) -name "*.py" | xargs rm -f
+
+
+# Build the win32 directory for future use
+build-win32-dir: build-win32 postbuild-win32
+
+
+# Having the Win32 files cross-compiled, create an installer using NSIS.
+make-nsis-win32:
+	makensis app1.nsi
+
+
+# Create the installer from scratch
+binary-win32: build-win32-dir make-nsis-win32
+
+build: binary-win32
