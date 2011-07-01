@@ -13,9 +13,6 @@ Also this uses ZeroMQ.
 
 """
 
-from eventlet.hubs import use_hub
-use_hub('zeromq')
-
 import threading
 import time
 import random
@@ -31,12 +28,16 @@ from eventlet import pools
 from eventlet.green import zmq
 couchdb = eventlet.import_patched('couchdb')
 
+
+
 def worker(ctx, i):
     print 'worker', i
 
     skt = ctx.socket(zmq.XREQ)
     skt.connect("inproc://#1")
-    
+
+    server_pool = pools.Pool(create=lambda: couchdb.Server(options.COUCHDB_URI), max_size=15)
+
 
     with server_pool.item() as server:
         while True:
@@ -51,7 +52,7 @@ def worker(ctx, i):
             rows = common.random_rows(db, 10)
             for row in rows:
                 skt.send_multipart(['', json.dumps(row)])
-            
+
             eventlet.sleep(random.uniform(0.1, 3))
 
 def split_multipart(parts):
@@ -61,7 +62,8 @@ def split_multipart(parts):
     else:
         return [parts[0:index], parts[index+1:]]
 
-if __name__ == '__main__':
+
+def main():
     # wait for couchdb to start
     time.sleep(2)
 

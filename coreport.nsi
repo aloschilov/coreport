@@ -91,6 +91,7 @@ Section "Start Menu Shortcuts"
   CreateShortCut "$SMPROGRAMS\coreport\Uninstall.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0 "" "" "Uninstall coreport"
   CreateShortCut "$SMPROGRAMS\coreport\app1.lnk" "$INSTDIR\python.exe" "capp1.pyo" "" 0 "" "" "app1"
   CreateShortCut "$SMPROGRAMS\coreport\app2.lnk" "$INSTDIR\python.exe" "capp2.pyo" "" 0 "" "" "app2"
+  CreateShortCut "$SMPROGRAMS\coreport\app3.lnk" "$INSTDIR\python.exe" "capp3.pyo" "" 0 "" "" "app3"
 
   SetOutPath "$APPDATA\.app1_coreport\couchdb\bin"
 

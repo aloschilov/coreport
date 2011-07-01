@@ -21,7 +21,7 @@ WIN32_MODULES_FILE := modules.dat
 
 # What builtin python modules are minimally needed to function on Windows?
 
-BUILTINS_RAW := distutils/ email/ email/mime/ encodings/ json/ logging/ multiprocessing/ sqlite3/ xml/ xml/dom/ xml/parsers
+BUILTINS_RAW := distutils/ email/ email/mime/ encodings/ json/ logging/ multiprocessing/ sqlite3/ xml/ xml/dom/ xml/parsers ctypes/
 BUILTINS_DIR := $(WINPYTHON_DIR)/Lib/
 BUILTINS_PY := $(shell ls $(BUILTINS_DIR)/*.py)
 BUILTINS_DLLS := $(shell ls $(WINPYTHON_DIR)/DLLs/*.dll)
@@ -47,14 +47,16 @@ EVENTLET_DIR := $(TEMP_DIR)/eventlet-$(EVENTLET_VERSION)
 GREENLET_URL := http://pypi.python.org/packages/2.6/g/greenlet/greenlet-0.3.1.win32-py2.6.exe
 GREENLET_DOWNLOADED := $(DOWNLOADS_DIR)/greenlet-0.3.1-py2.6-win32.egg
 
-# Setuptools
-SETUPTOOLS_URL := http://pypi.python.org/packages/2.6/s/setuptools/setuptools-0.6c11-py2.6.egg#md5=bfa92100bd772d5a213eedd356d64086
-SETUPTOOLS_DOWNLOADED := $(DOWNLOADS_DIR)/setuptools-0.6c11-py2.6.egg
+# ZeroMQ
+ZEROMQ_URL := https://github.com/downloads/zeromq/pyzmq/pyzmq-2.1.4.win32-py2.6.msi
+ZEROMQ_DOWNLOADED_MSI := $(DOWNLOADS_DIR)/pyzmq-2.1.4.win32-py2.6.msi
+ZEROMQ_TEMP_DIR := $(TEMP_DIR)/pyzmq
+
 
 PYTHON_DIRS_WIN32 := coreport
 
 
-all: $(PYTHON_DOWNLOADED_MSI) $(COUCHDB_HG_CLONE) $(COUCHDB_REDIST_DIR) $(EVENTLET_DIR) $(GREENLET_DOWNLOADED) $(SETUPTOOLS_DOWNLOADED)
+all: $(PYTHON_DOWNLOADED_MSI) $(COUCHDB_HG_CLONE) $(COUCHDB_REDIST_DIR) $(EVENTLET_DIR) $(GREENLET_DOWNLOADED) $(ZEROMQ_TEMP_DIR) $(ZEROMQ_TEMP_DIR)
 
 # Downloading prerequisites
 $(DOWNLOADS_DIR):
@@ -77,9 +79,7 @@ $(PYTHON_DOWNLOADED_MSI): $(DOWNLOADS_DIR)
 	@echo "Downloading $(PYTHON_DOWNLOADED_MSI)"
 	ls $(PYTHON_DOWNLOADED_MSI) 1>/dev/null 2>/dev/null || wget -O $(PYTHON_DOWNLOADED_MSI) "http://python.org/ftp/python/$(PYVERSION_WIN32_FULL)/python-$(PYVERSION_WIN32_FULL).msi"
 	ls $(TEMP_DIR) 1>/dev/null 2>/dev/null || mkdir $(TEMP_DIR)
-#	ls $(WINPYTHON_DIR) 1>&2 2>/dev/null || mkdir $(WINPYTHON_DIR)
 	ls $(WINPYTHON_DIR) 1>/dev/null 2>/dev/null || msiexec 2>/dev/null 1>/dev/null /a $(PYTHON_DOWNLOADED_MSI) /qb TARGETDIR=$(WINPYTHON_DIR)
-
 
 $(EVENTLET_DIR): $(DOWNLOADS_DIR)
 	@echo "Downloading eventlet package"
@@ -87,16 +87,16 @@ $(EVENTLET_DIR): $(DOWNLOADS_DIR)
 	ls $(TEMP_DIR) 1>/dev/null 2</dev/null || mkdir $(TEMP_DIR)
 	ls $(EVENTLET_DIR) 1>/dev/null 2>/dev/null || tar xvzf $(EVENTLET_DOWNLOADED) -C $(TEMP_DIR)
 
-
 $(GREENLET_DOWNLOADED): $(DOWNLOADS_DIR)
 	@echo "Downloading greenlet package"
 	wget $(GREENLET_URL) -O $(GREENLET_DOWNLOADED)
 	7z e $(GREENLET_DOWNLOADED) greenlet.pyd -r -o$(TEMP_DIR)
 
-
-$(SETUPTOOLS_DOWNLOADED): $(DOWNLOADS_DIR)
-	@echo "Downloading setuptools package"
-	wget $(SETUPTOOLS_URL) -O $(SETUPTOOLS_DOWNLOADED)
+$(ZEROMQ_TEMP_DIR): $(DOWNLOADS_DIR)
+	@echo "Downloading pyzmq"
+	ls $(ZEROMQ_DOWNLOADED_MSI) 1>/dev/null 2>/dev/null || wget -O $(ZEROMQ_DOWNLOADED_MSI) $(ZEROMQ_URL)
+	ls $(TEMP_DIR) 1>/dev/null 2>/dev/null || mkdir $(TEMP_DIR)
+	ls $(ZEROMQ_TEMP_DIR) 1>/dev/null 2>/dev/null || msiexec 2>/dev/null 1>/dev/null /a $(ZEROMQ_DOWNLOADED_MSI) /qb TARGETDIR=$(ZEROMQ_TEMP_DIR)
 
 
 prepare-win32:
@@ -128,8 +128,8 @@ prepare-win32:
 	cp -f $(WINPYTHON_DIR)/*.dll $(WIN32_RELEASE)
 	cp -f $(WINPYTHON_DIR)/*.manifest $(WIN32_RELEASE)
 
-	cp -f $(SETUPTOOLS_DOWNLOADED) $(WIN32_RELEASE)
 	cp -f $(TEMP_DIR)/greenlet.pyd $(WIN32_RELEASE)/libs
+	rm -rf $(WIN32_RELEASE)/zmq
 
 
 precompile-win32: prepare-win32
@@ -142,8 +142,7 @@ $(WIN32_MODULES_FILE): precompile-win32
 
 build-win32: $(WIN32_MODULES_FILE)
 	cp -f $(WIN32_MODULES_FILE) $(WIN32_MODULES_DIR)
-	$(PYTHON_WIN32) -OO /usr/bin/py_compilefiles capp1.py capp2.py
-
+	$(PYTHON_WIN32) -OO /usr/bin/py_compilefiles capp1.py capp2.py capp3.py
 
 # Remove the temporary files created during the Win32 build
 postbuild-win32:
@@ -158,8 +157,11 @@ postbuild-win32:
 	rm -R $(WIN32_RELEASE)/couchdb
 	rm -R $(WIN32_RELEASE)/eventlet
 
-	cp capp1.pyo capp2.pyo $(WIN32_RELEASE)
-	rm -rf capp1.pyo capp2.pyo
+	cp capp1.pyo capp2.pyo capp3.pyo $(WIN32_RELEASE)
+	rm -rf capp1.pyo capp2.pyo capp3.pyo
+
+	rm -rf $(WIN32_RELEASE)/zmq
+	cp -Rf $(ZEROMQ_TEMP_DIR)/Lib/site-packages/zmq $(WIN32_RELEASE)
 
 
 # Build the win32 directory for future use
