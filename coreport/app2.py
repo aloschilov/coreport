@@ -23,6 +23,8 @@ couchdb = eventlet.import_patched('couchdb')
 def worker(i):
     print 'worker', i
 
+    server_pool = pools.Pool(create=lambda: couchdb.Server(options.COUCHDB_URI), max_size=15)
+
     with server_pool.item() as server:
         while True:
             db = common.get_db(server, 'app2')
@@ -35,8 +37,8 @@ def worker(i):
             # Delete some random docs
             common.delete_random(db, common.random_rows(db, 10), i)
             eventlet.sleep(random.uniform(0.1, 3))
-    
-if __name__ == '__main__':
+
+def main():
     # wait for couchdb to start
     time.sleep(2)
 
